@@ -112,6 +112,9 @@ None of them deal damage. You still have to aim.
 
 ## 👾 Threat dossier
 
+<img src="docs/soldiers.png" alt="Helix Marksman, Bulwark and Trooper lined up in the firing range" width="100%">
+<sub>Helix Marksman · Bulwark · Trooper. Each one is generated with small random variations in kit and colour, so no two look identical.</sub>
+
 | Hostile | Threat | Health | How it fights | How to beat it |
 |---|---|---|---|---|
 | **Helix Trooper** | 🟥🟥⬜⬜ | 100 | Patrols, investigates noise, takes cover, peeks out to shoot, calls in friends | Flank its cover, or EMP it and push |

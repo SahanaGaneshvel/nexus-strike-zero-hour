@@ -26,7 +26,7 @@ function spawnEnemy(type,pos,opts){
   if(type!=='dummy'){const mk=new THREE.Sprite(new THREE.SpriteMaterial({map:TEX.mark,depthTest:false,transparent:true}));mk.scale.set(.6,.6,1);mk.position.y=2.4;mk.renderOrder=999;mk.visible=false;model.g.add(mk);e.mark=mk;}
   EN.push(e);return e;
 }
-function clearEnemies(){for(const e of EN){world.remove(e.model.g);if(e.laser)scene.remove(e.laser);}EN.length=0;for(const c of W.cover)c.taken=null;}
+function clearEnemies(){for(const e of EN){world.remove(e.model.g);if(e.droppedGun)world.remove(e.droppedGun);if(e.laser)scene.remove(e.laser);}EN.length=0;for(const c of W.cover)c.taken=null;}
 function setState(e,s){
   if(e.state===s)return;e.state=s;
   if(s==='suspicious'){e.waitT=0;SFX.alert(e.pos.clone().setY(1.6));}
@@ -141,7 +141,8 @@ function damageEnemy(e,dmg,head,at,dir,splash){
 function killEnemy(e,head){
   e.alive=false;e.deadT=0;e.model.flash.visible=false;e.model.glow.color.set(0x220a0e);if(e.laser)e.laser.visible=false;
   if(e.cover){e.cover.taken=null;e.cover=null;}
-  e.fallDir=Math.random()<.5?1:-1;
+  e.fallDir=Math.random()<.7?1:-1;e.twist=rand(-.45,.45);
+  if(!e.dummy){const gn=e.model.gun;world.attach(gn);e.droppedGun=gn;e.gunRest=false;e.gunVel=new V3(rand(-1.2,1.2),rand(1.2,2.6),rand(-1.2,1.2));e.gunSpin=new V3(rand(-7,7),rand(-7,7),rand(-7,7));}
   if(!e.dummy){M.stats.kills++;dropPickup(e.pos);}
   else M.rstats.kills++;
   SFX.kill();addFeed(head?'HEADSHOT':'ELIMINATED',e.T.name);
@@ -150,12 +151,21 @@ function killEnemy(e,head){
 }
 function updateEnemy(e,dt){
   const m=e.model;
-  if(e.flashT>0){e.flashT-=dt;const on=e.flashT>0;for(const mt of m.mats){mt.emissive.setHex(on?0xff6070:0x000000);mt.emissiveIntensity=on?.6:1;}}
+  if(e.flashT>0){e.flashT-=dt;const on=e.flashT>0;for(const mt of m.mats){mt.emissive.setHex(on?0xff6070:(mt.userData.baseEm||0));mt.emissiveIntensity=on?.6:1;}}
   if(e.flashT<=0&&m.flash.visible&&(e.fireFlash=(e.fireFlash||0)+dt)>.05){m.flash.visible=false;e.fireFlash=0;}
   if(!e.alive){
-    e.deadT+=dt;const k=Math.min(1,e.deadT*2.4);m.g.rotation.x=-k*Math.PI/2*.98;m.g.rotation.z=e.fallDir*k*.25;
-    if(e.deadT>3){m.g.position.y=e.pos.y-(e.deadT-3)*.6;if(e.deadT>3&&e.deadT<3.1)sparks(e.pos.clone().setY(e.pos.y+.4),null,20,0xff3d6e,2,-1,.8);}
-    if(e.deadT>4.6)m.g.visible=false;
+    e.deadT+=dt;const k1=1-Math.exp(-dt*14),k2=clamp((e.deadT-.12)/.5,0,1),ease=k2*k2*(3-2*k2);
+    m.kneeL.rotation.x=lerp(m.kneeL.rotation.x,-1.5,k1);m.kneeR.rotation.x=lerp(m.kneeR.rotation.x,-1.1,k1);
+    m.legL.rotation.x=lerp(m.legL.rotation.x,.8,k1);m.legR.rotation.x=lerp(m.legR.rotation.x,.5,k1);
+    m.spine.rotation.x=lerp(m.spine.rotation.x,e.fallDir>0?-.35:.4,k1);m.head.rotation.x=lerp(m.head.rotation.x,e.fallDir>0?.5:-.4,k1);
+    m.rig.rotation.x=lerp(m.rig.rotation.x,-1.1,k1);
+    m.g.rotation.x=e.fallDir*ease*1.45;m.g.rotation.z=e.twist*ease;
+    m.g.position.y=e.pos.y-ease*.12;
+    if(e.droppedGun&&!e.gunRest){const gn=e.droppedGun;e.gunVel.y-=12*dt;gn.position.addScaledVector(e.gunVel,dt);gn.rotation.x+=e.gunSpin.x*dt;gn.rotation.y+=e.gunSpin.y*dt;gn.rotation.z+=e.gunSpin.z*dt;
+      const gh=groundAt(gn.position,.05);if(gn.position.y<gh+.04){gn.position.y=gh+.04;e.gunVel.multiplyScalar(.35);e.gunVel.y=Math.abs(e.gunVel.y)*.25;e.gunSpin.multiplyScalar(.4);
+        if(e.gunVel.length()<.35){e.gunRest=true;gn.rotation.set(0,gn.rotation.y,Math.PI/2);}else if(AU.ctx)nb(outNode(gn.position),now(),.05,2200,3,.12);}}
+    if(e.deadT>3){m.g.position.y=e.pos.y-.12-(e.deadT-3)*.6;if(e.deadT<3.1)sparks(e.pos.clone().setY(e.pos.y+.4),null,20,0xff3d6e,2,-1,.8);}
+    if(e.deadT>4.6){m.g.visible=false;if(e.droppedGun)e.droppedGun.visible=false;}
     if(e.dummy&&e.deadT>1.6)respawnDummy(e);
     return;
   }
@@ -221,14 +231,21 @@ function updateEnemy(e,dt){
   animEnemy(e,dt,hs);
 }
 function animEnemy(e,dt,hs){
-  const m=e.model;e.walkPh+=dt*hs*1.9;const sw=Math.min(1,hs/4.5)*.75;
-  m.legL.rotation.x=Math.sin(e.walkPh)*sw;m.legR.rotation.x=-Math.sin(e.walkPh)*sw;
-  m.kneeL.rotation.x=-Math.max(0,Math.sin(e.walkPh+1.3))*sw*1.4-e.crouch*1.2;m.kneeR.rotation.x=-Math.max(0,-Math.sin(e.walkPh+1.3))*sw*1.4-e.crouch*1.2;
-  m.legL.rotation.x+=e.crouch*1.1;m.legR.rotation.x+=e.crouch*.7;
-  const fl=e.flinchT>0?Math.sin(e.flinchT*30)*.12:0;
-  m.head.rotation.x=fl;m.head.rotation.z=e.stunT>0?Math.sin(performance.now()/60)*.2:0;
-  m.g.position.set(e.pos.x,e.pos.y-e.crouch*.42*e.scale+Math.abs(Math.sin(e.walkPh))*.04*sw,e.pos.z);
-  m.g.rotation.set(fl*.5,e.yaw,0);
+  const m=e.model;e.walkPh+=dt*hs*1.9;const sw=Math.min(1,hs/4.5),t=performance.now()/1000+e.id*1.7;
+  m.legL.rotation.x=Math.sin(e.walkPh)*sw*.7+e.crouch*1.15;m.legR.rotation.x=-Math.sin(e.walkPh)*sw*.7+e.crouch*.75;
+  m.kneeL.rotation.x=-Math.max(0,Math.sin(e.walkPh+1.3))*sw*1.3-e.crouch*1.3;m.kneeR.rotation.x=-Math.max(0,-Math.sin(e.walkPh+1.3))*sw*1.3-e.crouch*.9;
+  let aim=0;
+  if(e.state==='combat'&&P&&!e.dummy){const dy=(P.pos.y+1.2)-(e.pos.y+1.45),dh=Math.hypot(P.pos.x-e.pos.x,P.pos.z-e.pos.z)||1;aim=clamp(Math.atan2(dy,dh),-.7,.7);}
+  e.aimS=lerp(e.aimS||0,aim,1-Math.exp(-dt*8));
+  const low=e.dummy?0:e.state==='patrol'||e.state==='search'?1:e.state==='suspicious'?.45:0;
+  e.ready=lerp(e.ready===undefined?1:e.ready,low,1-Math.exp(-dt*5));
+  const br=Math.sin(t*1.7),fl=e.flinchT>0?Math.sin(e.flinchT*30)*.14:0;
+  m.spine.rotation.set(e.aimS*.5-sw*.14+br*.012+fl-e.crouch*.12,Math.sin(e.walkPh)*.07*sw,Math.sin(e.walkPh)*.03*sw);
+  m.rig.rotation.set(e.aimS*.45-e.ready*.6+br*.01,e.ready*.3,e.ready*.12);
+  m.head.rotation.set(-e.aimS*.3+fl*.5,e.state==='patrol'?Math.sin(t*.55)*.35:0,e.stunT>0?Math.sin(t*16)*.2:0);
+  m.spine.position.y=1.04+br*.004;
+  m.g.position.set(e.pos.x,e.pos.y-e.crouch*.36*e.scale+Math.abs(Math.sin(e.walkPh))*.035*sw,e.pos.z);
+  m.g.rotation.set(0,e.yaw,0);
   m.g.visible=camera.position.distanceTo(e.pos)<74;
 }
 // range targets

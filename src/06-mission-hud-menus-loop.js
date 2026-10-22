@@ -232,7 +232,7 @@ function startDrill(){
 }
 function updateRangeMission(dt){
   if(M.drill)M.drill.t+=dt;
-  for(let i=EN.length-1;i>=0;i--){const e=EN[i];if(!e.alive&&!e.dummy&&e.deadT>5){world.remove(e.model.g);if(e.laser)scene.remove(e.laser);EN.splice(i,1);}}
+  for(let i=EN.length-1;i>=0;i--){const e=EN[i];if(!e.alive&&!e.dummy&&e.deadT>5){world.remove(e.model.g);if(e.droppedGun)world.remove(e.droppedGun);if(e.laser)scene.remove(e.laser);EN.splice(i,1);}}
 }
 
 /* ================= INTRO ================= */
