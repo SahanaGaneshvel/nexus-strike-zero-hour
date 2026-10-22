@@ -1,0 +1,287 @@
+<title>NEXUS STRIKE: ZERO HOUR</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700;800&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: full-bleed WebGL stage; HUD anchored to the four corners; menus are left-aligned command stacks over the live city. */
+:root{
+  color-scheme:dark;
+  --void:#04060c; --panel:rgba(8,13,24,.78); --panel-solid:#0a1120; --line:rgba(140,200,255,.18);
+  --ink:#e4efff; --mute:#7d8fab;
+  --aegis:#38e8ff; --helix:#ff3d6e; --core:#ffc24a; --good:#5cff9d; --warn:#ffb03a;
+  --f-display:'Saira Condensed','Arial Narrow',Impact,sans-serif;
+  --f-body:'Chakra Petch','Segoe UI',system-ui,sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--void);color:var(--ink);font-family:var(--f-body)}
+canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;outline:none;transition:filter .8s}
+canvas#gl.dead{filter:grayscale(.85) contrast(1.15) brightness(.8)}
+button{font-family:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--aegis);outline-offset:2px}
+.eyebrow{font:500 11px var(--f-mono);letter-spacing:.18em;text-transform:uppercase;color:var(--mute)}
+.cut{clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px))}
+
+/* ---------- MENU ---------- */
+#menu{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding-block:28px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:linear-gradient(90deg,rgba(4,6,12,.9) 0%,rgba(4,6,12,.55) 34%,rgba(4,6,12,0) 62%);overflow-y:auto}
+.title{max-width:640px}
+.title h1{margin:6px 0 0;font:800 clamp(46px,7.4vw,104px)/.8 var(--f-display);letter-spacing:-.01em}
+.title h1 em{display:block;font-style:normal;color:transparent;-webkit-text-stroke:1.5px var(--aegis);font-size:.62em;letter-spacing:.08em;margin-top:8px}
+.title p{max-width:52ch;font-size:15px;line-height:1.55;color:#b9c8de;margin:16px 0 0}
+.mstack{display:flex;flex-direction:column;gap:8px;width:min(380px,100%)}
+.mbtn{display:grid;grid-template-columns:34px 1fr;gap:0 12px;text-align:left;align-items:center;background:var(--panel);border:1px solid var(--line);padding:12px 14px}
+.mbtn b{font:700 22px var(--f-display);letter-spacing:.06em;text-transform:uppercase}
+.mbtn small{grid-column:2;font-size:12.5px;color:var(--mute)}
+.mbtn .k{grid-row:span 2;font:700 14px var(--f-mono);color:var(--mute)}
+.mbtn.pri{background:var(--aegis);color:#03121a;border-color:var(--aegis)}
+.mbtn.pri small,.mbtn.pri .k{color:#0a3a48}
+.mbtn:hover{border-color:var(--aegis)}
+.mfoot{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;justify-content:space-between}
+.mfoot .eyebrow b{color:var(--core);font-weight:500}
+#touchNote{max-width:380px;border:1px solid var(--core);color:var(--core);padding:10px 12px;font-size:13px;background:var(--panel)}
+
+/* ---------- OVERLAYS ---------- */
+.overlay{position:fixed;inset:0;display:grid;place-items:center;background:rgba(3,5,10,.74);padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));overflow-y:auto;z-index:20}
+.sheet{background:var(--panel-solid);border:1px solid var(--line);padding:24px;width:min(560px,100%);box-sizing:border-box;display:flex;flex-direction:column;gap:14px}
+.sheet h2{margin:0;font:800 36px/.9 var(--f-display);letter-spacing:.05em;text-transform:uppercase}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px}
+.row input[type=range]{width:170px;accent-color:var(--aegis)}
+.row select{background:#0d1628;color:var(--ink);border:1px solid var(--line);padding:5px 8px;font-family:inherit}
+.row output{font:500 12px var(--f-mono);color:var(--mute);min-width:34px;text-align:right}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
+.btn{background:transparent;border:1px solid var(--line);padding:10px 18px;font:700 17px var(--f-display);letter-spacing:.08em;text-transform:uppercase}
+.btn.pri{background:var(--aegis);color:#03121a;border-color:var(--aegis)}
+.btn:hover{border-color:var(--aegis)}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13.5px;color:#b9c8de}
+.keys kbd{font:500 11.5px var(--f-mono);color:var(--ink);border:1px solid var(--line);padding:2px 7px;text-align:center;white-space:nowrap}
+#result{background:radial-gradient(ellipse at 50% 35%,rgba(9,14,26,.35),rgba(3,5,10,.92))}
+.rbig{font:800 clamp(60px,11vw,140px)/.85 var(--f-display);letter-spacing:.04em;text-align:center;animation:pop .8s cubic-bezier(.2,1.5,.4,1) both}
+@keyframes pop{from{transform:scale(1.5);opacity:0;letter-spacing:.35em}}
+.rstats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.rstats div{background:var(--panel);border:1px solid var(--line);padding:10px 12px}
+.rstats b{display:block;font:700 28px var(--f-display);font-variant-numeric:tabular-nums}
+.rstats span{font:500 10px var(--f-mono);letter-spacing:.14em;color:var(--mute)}
+.grade{font:800 72px/.9 var(--f-display);color:var(--core);text-align:center}
+
+/* ---------- CINEMATIC ---------- */
+#cine{position:fixed;inset:0;pointer-events:none;z-index:15}
+#cine .bar{position:absolute;left:0;right:0;height:11vh;background:#000;transition:transform .8s}
+#cine .top{top:0}#cine .bot{bottom:0}
+#cine.off .top{transform:translateY(-100%)}#cine.off .bot{transform:translateY(100%)}
+#capt{position:absolute;left:0;right:0;bottom:15vh;text-align:center;opacity:0;transition:opacity .6s}
+#capt.on{opacity:1}
+#capt b{display:block;font:800 clamp(30px,5vw,64px)/.95 var(--f-display);letter-spacing:.08em}
+#capt span{display:block;margin-top:8px;font:500 15px var(--f-body);letter-spacing:.06em;color:#c7d6ec}
+#skip{position:absolute;right:max(20px,env(safe-area-inset-right,0px));bottom:calc(11vh + 14px);font:500 11px var(--f-mono);letter-spacing:.16em;color:var(--mute)}
+#fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .6s;z-index:16}
+#fade.white{background:#fff}
+
+/* ---------- HUD ---------- */
+#hud{position:fixed;inset:0;pointer-events:none;user-select:none}
+#compass{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:440px;max-width:calc(100% - 32px);height:34px}
+#stealth{position:absolute;top:calc(50px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);font:600 11px var(--f-mono);letter-spacing:.2em;padding:3px 10px;background:var(--panel)}
+#stealth.hidden{color:var(--mute)}#stealth.sus{color:var(--warn)}#stealth.det{color:var(--helix);box-shadow:inset 0 0 0 1px var(--helix)}
+#countdown{position:absolute;top:calc(76px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);text-align:center}
+#countdown b{display:block;font:800 46px/1 var(--f-display);font-variant-numeric:tabular-nums;color:var(--helix);text-shadow:0 0 20px rgba(255,61,110,.5)}
+#countdown span{font:500 10px var(--f-mono);letter-spacing:.2em;color:var(--helix)}
+#obj{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));left:calc(18px + env(safe-area-inset-left,0px));width:290px;background:var(--panel);border-left:2px solid var(--core);padding:10px 14px;display:flex;flex-direction:column;gap:4px}
+#objT{font:700 20px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase}
+#objD{font-size:12.5px;color:#b9c8de;line-height:1.4}
+#objBar{height:3px;background:rgba(255,255,255,.12);margin-top:4px}#objBar i{display:block;height:100%;background:var(--core);width:0}
+#objMark{position:absolute;left:0;top:0;transform:translate(-50%,-50%);text-align:center;font:600 11px var(--f-mono);color:var(--core);letter-spacing:.1em}
+#objMark i{display:block;width:14px;height:14px;margin:0 auto 3px;border:2px solid var(--core);transform:rotate(45deg)}
+#feed{position:absolute;top:calc(110px + env(safe-area-inset-top,0px));right:calc(18px + env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:4px;align-items:flex-end}
+.kf{background:var(--panel);padding:4px 10px;font:600 12.5px var(--f-body);letter-spacing:.04em;animation:kin .25s both}
+.kf b{color:var(--core);font-family:var(--f-mono);font-size:11px;margin-right:6px}
+@keyframes kin{from{opacity:0;transform:translateX(20px)}}
+#crosshair{position:absolute;left:50%;top:50%;width:0;height:0;--g:5px}
+#crosshair i{position:absolute;background:#eafcff;box-shadow:0 0 0 1px rgba(0,0,0,.7)}
+#crosshair i:nth-child(1){width:2px;height:6px;left:-1px;bottom:var(--g)}
+#crosshair i:nth-child(2){width:2px;height:6px;left:-1px;top:var(--g)}
+#crosshair i:nth-child(3){width:6px;height:2px;top:-1px;right:var(--g)}
+#crosshair i:nth-child(4){width:6px;height:2px;top:-1px;left:var(--g)}
+#crosshair .dot{position:absolute;width:2px;height:2px;left:-1px;top:-1px;background:#eafcff}
+#hitm{position:absolute;left:-12px;top:-12px;width:24px;height:24px;opacity:0;transition:opacity .18s}
+#hitm::before,#hitm::after{content:"";position:absolute;left:11px;top:0;width:2px;height:24px;background:linear-gradient(#fff 0 35%,transparent 35% 65%,#fff 65%);transform:rotate(45deg)}
+#hitm::after{transform:rotate(-45deg)}
+#hitm.on{opacity:1;transition:none}
+#hitm.head::before,#hitm.head::after{background:linear-gradient(var(--core) 0 35%,transparent 35% 65%,var(--core) 65%)}
+#hitm.kill::before,#hitm.kill::after{background:linear-gradient(var(--helix) 0 42%,transparent 42% 58%,var(--helix) 58%);height:30px;top:-3px}
+#dmgDir,#alerts{position:absolute;left:50%;top:50%;width:0;height:0}
+.dd{position:absolute;left:-70px;top:-170px;width:140px;height:30px;background:radial-gradient(ellipse at 50% 100%,rgba(255,61,110,.9),transparent 70%);transform-origin:70px 170px;transition:opacity .8s}
+.al{position:absolute;left:-9px;top:-140px;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:14px solid var(--warn);transform-origin:9px 140px}
+.al.det{border-bottom-color:var(--helix)}
+#ind{position:absolute;inset:0}
+.ei{position:absolute;left:0;top:0;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:conic-gradient(var(--c,var(--warn)) calc(var(--a,0)*1turn),rgba(255,255,255,.12) 0);display:grid;place-items:center}
+.ei::after{content:attr(data-s);width:18px;height:18px;border-radius:50%;background:rgba(5,8,15,.9);display:grid;place-items:center;font:700 12px var(--f-mono);color:var(--c,var(--warn))}
+.ei.det{--c:var(--helix)}
+#banner{position:absolute;left:0;right:0;top:24%;text-align:center;opacity:0;transition:opacity .4s}
+#banner.on{opacity:1}
+#banner b{display:block;font:800 clamp(34px,5.5vw,66px)/.95 var(--f-display);letter-spacing:.06em;text-shadow:0 0 30px rgba(0,0,0,.6)}
+#banner span{display:inline-block;margin-top:8px;font:600 13px var(--f-body);letter-spacing:.14em;text-transform:uppercase;background:var(--panel);padding:4px 12px}
+#hint{position:absolute;left:50%;bottom:31%;transform:translateX(-50%);font:600 14px var(--f-body);letter-spacing:.06em;background:var(--panel);padding:6px 14px;border:1px solid var(--line);white-space:nowrap}
+#hint kbd{font:700 12px var(--f-mono);color:var(--core);margin-right:8px;border:1px solid var(--core);padding:0 5px}
+#prog{position:absolute;left:50%;bottom:27.5%;transform:translateX(-50%);width:280px;height:6px;background:rgba(255,255,255,.14)}
+#progFill{height:100%;width:0;background:var(--core)}
+#comms{position:absolute;left:calc(18px + env(safe-area-inset-left,0px));bottom:calc(112px + env(safe-area-inset-bottom,0px));max-width:min(460px,calc(100% - 36px));background:var(--panel);border-left:2px solid var(--aegis);padding:8px 12px;font-size:14px;line-height:1.45;opacity:0;transition:opacity .3s}
+#comms.on{opacity:1}
+#comms b{font:700 11px var(--f-mono);letter-spacing:.16em;color:var(--aegis);display:block;margin-bottom:2px}
+#vitals{position:absolute;bottom:calc(22px + env(safe-area-inset-bottom,0px));left:calc(22px + env(safe-area-inset-left,0px));display:flex;align-items:flex-end;gap:12px}
+#hpNum{font:800 56px/.85 var(--f-display);font-variant-numeric:tabular-nums}
+#hpNum.low{color:var(--helix)}
+.bars{display:flex;flex-direction:column;gap:5px;width:200px;padding-bottom:4px}
+.bar{height:7px;background:rgba(255,255,255,.12)}.bar i{display:block;height:100%;background:var(--ink);transition:width .15s}
+#arBar i{background:var(--aegis)}
+.vlbl{font:500 10px var(--f-mono);letter-spacing:.14em;color:var(--mute)}
+#abil{position:absolute;bottom:calc(22px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);display:flex;gap:8px}
+.ak{width:76px;height:64px;background:var(--panel);border:1px solid var(--line);position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:6px 7px;box-sizing:border-box}
+.ak kbd{font:700 12px var(--f-mono);color:var(--c)}
+.ak span{font:600 10px/1.1 var(--f-body);text-transform:uppercase;letter-spacing:.05em}
+.ak .cd{position:absolute;inset:0;background:conic-gradient(rgba(4,6,12,.82) calc(var(--p,0)*1turn),transparent 0);display:grid;place-items:center;font:700 20px var(--f-display)}
+.ak.ready{border-color:var(--c)}
+.ak.live{box-shadow:0 0 0 1px var(--c),0 0 22px -4px var(--c)}
+#ammo{position:absolute;bottom:calc(22px + env(safe-area-inset-bottom,0px));right:calc(22px + env(safe-area-inset-right,0px));text-align:right}
+#ammoNum{font:800 56px/.85 var(--f-display);font-variant-numeric:tabular-nums}
+#ammoNum small{font-size:26px;color:var(--mute)}
+#ammoNum.low{color:var(--warn)}
+#wName{font:600 13px var(--f-body);letter-spacing:.12em;text-transform:uppercase;margin-top:4px}
+#wSub{font:500 10.5px var(--f-mono);color:var(--mute);letter-spacing:.12em}
+#rangeStats{position:absolute;top:calc(150px + env(safe-area-inset-top,0px));left:calc(18px + env(safe-area-inset-left,0px));width:290px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line);padding:10px 14px;font:500 12px var(--f-mono);display:grid;grid-template-columns:1fr auto;gap:5px}
+#lockHint{position:absolute;left:50%;top:58%;transform:translateX(-50%);font:600 13px var(--f-body);letter-spacing:.1em;color:var(--ink);background:var(--panel);padding:5px 12px}
+#flash{position:absolute;inset:0;box-shadow:inset 0 0 180px rgba(255,30,70,.8);opacity:0}
+#lowhp{position:absolute;inset:0;box-shadow:inset 0 0 220px rgba(255,20,60,.55);opacity:0;transition:opacity .4s}
+#fx{position:absolute;inset:0;opacity:0;transition:opacity .25s}
+#fx.aegis{opacity:1;box-shadow:inset 0 0 120px rgba(56,232,255,.5)}
+#fx.phase{opacity:1;transition:none;background:radial-gradient(ellipse at center,transparent 35%,rgba(140,240,255,.35) 75%,rgba(255,255,255,.55));}
+#fx.emp{opacity:1;transition:none;box-shadow:inset 0 0 260px rgba(56,232,255,.85)}
+#hex{position:absolute;inset:0;opacity:0;transition:opacity .3s;background-size:46px 40px;-webkit-mask-image:radial-gradient(ellipse at center,transparent 38%,#000 85%);mask-image:radial-gradient(ellipse at center,transparent 38%,#000 85%)}
+#hex.on{opacity:.38}
+#hex.hit{opacity:.8;transition:none}
+#scope{position:absolute;inset:0}
+#killpop{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
+.kp{display:flex;flex-direction:column;align-items:center;gap:4px;animation:kp 1.1s cubic-bezier(.2,1.4,.4,1) forwards}
+.kp .x{width:46px;height:46px;position:relative}
+.kp .x::before,.kp .x::after{content:"";position:absolute;left:21px;top:-4px;width:4px;height:54px;background:var(--c,var(--helix));box-shadow:0 0 18px var(--c,var(--helix));transform:rotate(45deg)}
+.kp .x::after{transform:rotate(-45deg)}
+.kp .ring{position:absolute;left:50%;top:23px;width:46px;height:46px;margin:-23px 0 0 -23px;border:2px solid var(--c,var(--helix));border-radius:50%;animation:ring .6s ease-out forwards}
+.kp b{font:800 26px/1 var(--f-display);letter-spacing:.14em;color:var(--c,var(--helix));text-shadow:0 0 18px rgba(0,0,0,.6)}
+.kp small{font:600 11px var(--f-mono);letter-spacing:.2em;color:var(--ink)}
+@keyframes kp{0%{opacity:0;transform:scale(1.8)}12%{opacity:1;transform:scale(1)}75%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
+@keyframes ring{from{transform:scale(.4);opacity:1}to{transform:scale(2.6);opacity:0}}
+#droneFx{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(56,232,255,.05) 0 1px,transparent 1px 3px);box-shadow:inset 0 0 160px rgba(0,30,40,.7)}
+#droneFx .tag{position:absolute;top:calc(96px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);font:600 12px var(--f-mono);letter-spacing:.24em;color:var(--aegis);background:var(--panel);padding:4px 12px;white-space:nowrap}
+#droneFx .tag i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--helix);margin-right:8px;animation:blink 1s infinite}
+#droneFx .corner{position:absolute;width:40px;height:40px;border:2px solid var(--aegis);opacity:.7}
+@keyframes blink{50%{opacity:.2}}
+#fpsBox{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:calc(18px + env(safe-area-inset-right,0px));font:600 11px var(--f-mono);color:var(--good);background:var(--panel);padding:3px 8px;letter-spacing:.1em}
+#fatal{position:fixed;inset:0;display:grid;place-items:center;text-align:center;padding:24px;background:var(--void);z-index:50}
+@media (max-width:720px){#obj,#rangeStats{width:220px}.bars{width:130px}#hpNum,#ammoNum{font-size:40px}.ak{width:60px}}
+@media (prefers-reduced-motion:reduce){.rbig,.kf{animation:none}}
+</style>
+
+<canvas id="gl" tabindex="0" aria-label="NEXUS STRIKE: ZERO HOUR game view"></canvas>
+
+<div id="fatal" hidden><div><div class="eyebrow">Startup failed</div><h2 style="font:800 34px var(--f-display)">The 3D engine did not load</h2><p style="color:var(--mute);max-width:46ch">NEXUS STRIKE needs WebGL and the Three.js library from cdn.jsdelivr.net. Check your connection, then reload this page.</p></div></div>
+
+<div id="menu" hidden>
+  <div class="title">
+    <div class="eyebrow">Gaming Conf 2026 · WTC · Single-player mission</div>
+    <h1>NEXUS STRIKE<em>ZERO HOUR</em></h1>
+    <p>2089. The Helix Syndicate has stolen the Nexus Core and locked it inside a reactor in the Last City. You go in alone, with a support drone called WREN. Breach the research facility, pull the core and get to the extraction pad before the reactor melts down.</p>
+  </div>
+  <div class="mstack">
+    <button class="mbtn pri" id="mStart"><span class="k">01</span><b>Start mission</b><small>Operation Zero Hour · about 10 minutes</small></button>
+    <button class="mbtn" id="mCont" hidden><span class="k">02</span><b>Continue</b><small id="mContSub">From the last checkpoint</small></button>
+    <button class="mbtn" id="mRange"><span class="k">03</span><b>Firing range</b><small>Moving targets, live-fire drills, fast cooldowns</small></button>
+    <button class="mbtn" id="mSet"><span class="k">04</span><b>Settings</b><small>Mouse, field of view, audio, difficulty, graphics</small></button>
+    <button class="mbtn" id="mKeys"><span class="k">05</span><b>Controls</b><small>Keyboard and mouse layout</small></button>
+    <button class="mbtn" id="mFull" hidden><span class="k">06</span><b>Fullscreen</b><small>Toggle full-screen display</small></button>
+    <div id="touchNote" hidden>This game needs a keyboard and mouse. On a touch device you can watch the city, but you can't play.</div>
+  </div>
+  <div class="mfoot">
+    <div class="eyebrow">Map · <b>The Last City</b> · Aegis Directive vs Helix Syndicate</div>
+    <div class="eyebrow" id="sndHint">Click anywhere to turn on sound</div>
+    <div class="eyebrow" id="mBest"></div>
+  </div>
+</div>
+
+<div id="hud" hidden>
+  <div id="ind"></div>
+  <canvas id="compass" width="440" height="34"></canvas>
+  <div id="stealth" class="hidden">HIDDEN</div>
+  <div id="countdown" hidden><b id="cdNum">2:30</b><span>REACTOR MELTDOWN</span></div>
+  <div id="obj"><div class="eyebrow" id="objS">Objective 1 / 4</div><div id="objT">Breach the facility</div><div id="objD"></div><div id="objBar"><i></i></div></div>
+  <div id="rangeStats" hidden></div>
+  <div id="objMark" hidden><i></i><span id="objDist">0 m</span></div>
+  <div id="fpsBox" hidden>-- FPS</div>
+  <div id="feed"></div>
+  <div id="crosshair"><i></i><i></i><i></i><i></i><span class="dot"></span><b id="hitm"></b></div>
+  <div id="dmgDir"></div>
+  <div id="alerts"></div>
+  <div id="banner"><b id="banT"></b><span id="banS"></span></div>
+  <div id="hint" hidden></div>
+  <div id="prog" hidden><div id="progFill"></div></div>
+  <div id="comms"><b id="commW">WREN</b><span id="commT"></span></div>
+  <div id="vitals"><div id="hpNum">100</div><div class="bars"><div class="vlbl">HEALTH · ARMOR</div><div class="bar" id="hpBar"><i></i></div><div class="bar" id="arBar"><i></i></div></div></div>
+  <div id="abil">
+    <div class="ak" id="ak-q" style="--c:#7ff4ff"><kbd>Q</kbd><span>Phase shift</span><div class="cd"></div></div>
+    <div class="ak" id="ak-e" style="--c:#38e8ff"><kbd>E</kbd><span>EMP burst</span><div class="cd"></div></div>
+    <div class="ak" id="ak-x" style="--c:#ffc24a"><kbd>X</kbd><span>Aegis shield</span><div class="cd"></div></div>
+  </div>
+  <div id="ammo"><div id="ammoNum">30<small> / 180</small></div><div id="wName">VX-9 Lancer</div><div id="wSub">1 · 2 SWAP  ·  V INSPECT  ·  T DRONE</div></div>
+  <div id="lockHint" hidden>Click to take aim</div>
+  <div id="droneFx" hidden><div class="tag"><i></i>WREN DRONE FEED · T TO RETURN</div><div class="corner" style="left:24px;top:24px;border-right:0;border-bottom:0"></div><div class="corner" style="right:24px;top:24px;border-left:0;border-bottom:0"></div><div class="corner" style="left:24px;bottom:24px;border-right:0;border-top:0"></div><div class="corner" style="right:24px;bottom:24px;border-left:0;border-top:0"></div></div>
+  <div id="killpop"></div>
+  <div id="lowhp"></div>
+  <div id="hex"></div>
+  <div id="fx"></div>
+  <div id="flash"></div>
+</div>
+
+<div id="cine" class="off"><div class="bar top"></div><div class="bar bot"></div><div id="capt"><b id="captT"></b><span id="captS"></span></div><div id="skip" hidden>SPACE · SKIP</div></div>
+<div id="fade"></div>
+
+<div class="overlay" id="pause" hidden>
+  <div class="sheet cut">
+    <div class="eyebrow">Mission paused</div><h2>Standing by</h2>
+    <div class="btns" style="flex-direction:column">
+      <button class="btn pri" id="pResume">Resume</button>
+      <button class="btn" id="pCheck">Restart from checkpoint</button>
+      <button class="btn" id="pRestart">Restart mission</button>
+      <button class="btn" id="pSet">Settings</button>
+      <button class="btn" id="pKeys">Controls</button>
+      <button class="btn" id="pFull" hidden>Toggle fullscreen</button>
+      <button class="btn" id="pQuit">Quit to main menu</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="settings" hidden>
+  <div class="sheet cut">
+    <div class="eyebrow">Configuration</div><h2>Settings</h2>
+    <label class="row" for="sSens">Mouse sensitivity <span><input type="range" id="sSens" min="0.3" max="4" step="0.1"> <output id="oSens"></output></span></label>
+    <label class="row" for="sFov">Field of view <span><input type="range" id="sFov" min="70" max="100" step="1"> <output id="oFov"></output></span></label>
+    <label class="row" for="sVol">Master volume <span><input type="range" id="sVol" min="0" max="1" step="0.05"> <output id="oVol"></output></span></label>
+    <label class="row" for="sMus">Music volume <span><input type="range" id="sMus" min="0" max="1" step="0.05"> <output id="oMus"></output></span></label>
+    <label class="row" for="sInv">Invert mouse Y <input type="checkbox" id="sInv"></label>
+    <label class="row" for="sDiff">Difficulty <select id="sDiff"><option value="recruit">Recruit</option><option value="operative">Operative</option><option value="elite">Elite</option></select></label>
+    <label class="row" for="sQual">Graphics <select id="sQual"><option value="high">High · bloom and shadows</option><option value="low">Performance</option></select></label>
+    <label class="row" for="sFps">Show frame rate <input type="checkbox" id="sFps"></label>
+    <div class="btns"><button class="btn pri" id="sDone">Done</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="keysPanel" hidden>
+  <div class="sheet cut">
+    <div class="eyebrow">Field manual</div><h2>Controls</h2>
+    <div class="keys">
+      <kbd>W A S D</kbd><span>Move</span><kbd>Mouse</kbd><span>Aim</span><kbd>Shift</kbd><span>Sprint</span><kbd>C</kbd><span>Crouch (hold)</span><kbd>Space</kbd><span>Jump</span>
+      <kbd>Left click</kbd><span>Fire</span><kbd>Right click</kbd><span>Aim down sights</span><kbd>R</kbd><span>Reload</span><kbd>1 · 2 · Wheel</kbd><span>Rifle / pistol</span><kbd>V</kbd><span>Inspect weapon</span>
+      <kbd>Q</kbd><span>Phase Shift · short dash, bullets miss you mid-dash</span><kbd>E</kbd><span>EMP Burst · stuns enemies within 10 m for 3.5 s</span><kbd>X</kbd><span>Aegis Shield · blocks all damage for 4 s</span>
+      <kbd>T</kbd><span>Drone view · WREN's overhead feed, marks enemies through walls (no firing)</span><kbd>F</kbd><span>Interact (hold for terminals)</span><kbd>Esc</kbd><span>Pause</span>
+    </div>
+    <div class="btns"><button class="btn pri" id="kDone">Done</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="result" hidden></div>
